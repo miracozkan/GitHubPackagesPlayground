@@ -1,6 +1,20 @@
-def localPropertiesFile = rootProject.file("local.properties")
-def localProperties = new Properties()
-localProperties.load(new FileInputStream(localPropertiesFile))
+Properties localProperties = new Properties()
+String localPropertiesFileName = new String('local.properties')
+def localPropertiesFile = file("$rootDir/$localPropertiesFileName")
+
+boolean hasLocalProperties = localPropertiesFile.exists()
+
+String gprUser = new String()
+String gprApiKey = new String()
+
+if (hasLocalProperties) {
+    localProperties.load(localPropertiesFile.newDataInputStream())
+    gprUser = localProperties.getProperty("gpr.usr")
+    gprApiKey = localProperties.getProperty("gpr.readkey")
+} else {
+    gprUser = System.getenv("GPR_USER")
+    gprApiKey = System.getenv("GPR_READ_API_KEY")
+}
 
 repositories {
     maven {
@@ -8,8 +22,8 @@ repositories {
         url = uri("https://maven.pkg.github.com/miracozkan/GitHubPackagesPlayground")
 
         credentials {
-            username = System.getenv("GPR_USER") ?: localProperties['gpr.usr']
-            password = System.getenv("GPR_READ_API_KEY") ?: localProperties['gpr.readkey']
+            username = System.getenv("GPR_USER") ?: gprUser
+            password = System.getenv("GPR_READ_API_KEY") ?: gprApiKey
         }
     }
 }
