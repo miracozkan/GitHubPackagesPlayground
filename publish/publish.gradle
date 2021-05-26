@@ -1,0 +1,150 @@
+apply plugin: 'maven-publish'
+
+// Publish
+String publishFolderName = new String('publish')
+
+String gprUser = new String()
+String gprApiKey = new String()
+
+Properties localProperties = new Properties()
+String localPropertiesFileName = new String('local.properties')
+def localPropertiesFile = file("$rootDir/$localPropertiesFileName")
+
+boolean hasLocalProperties = localPropertiesFile.exists()
+
+// If local.properties doesn't exist, then we get bintrayUser & bintrayApiKey from Bintray secrets.
+if (hasLocalProperties) {
+    localProperties.load(localPropertiesFile.newDataInputStream())
+    gprUser = localProperties.getProperty("gpr.usr")
+    gprApiKey = localProperties.getProperty("gpr.key")
+} else {
+    gprUser = System.getenv("GPR_USER")
+    gprApiKey = System.getenv("GPR_API_KEY")
+}
+
+// Developer Properties
+Properties developerProperties = new Properties()
+String developerPropertiesFileName = new String('developer.properties')
+developerProperties.load(file("$rootDir/${project.name}/$developerPropertiesFileName").newDataInputStream())
+
+// Library Properties
+Properties libraryProperties = new Properties()
+String libraryPropertiesFileName = new String('library.properties')
+libraryProperties.load(file("$rootDir/${project.name}/$libraryPropertiesFileName").newDataInputStream())
+
+// License Properties
+Properties licenseProperties = new Properties()
+String licensePropertiesFileName = new String('license.properties')
+licenseProperties.load(file("$rootDir/$publishFolderName/$licensePropertiesFileName").newDataInputStream())
+
+// Macaron Properties
+Properties playgroundProperties = new Properties()
+String playgroundPropertiesFileName = new String('playground.properties')
+playgroundProperties.load(file("$rootDir/$publishFolderName/$playgroundPropertiesFileName").newDataInputStream())
+
+task checkProperties {
+    if (hasLocalProperties) {
+        throwMissingValueExceptionIfNeed(localProperties, localPropertiesFileName)
+    }
+
+    throwMissingValueExceptionIfNeed(developerProperties, developerPropertiesFileName)
+    throwMissingValueExceptionIfNeed(playgroundProperties, playgroundPropertiesFileName)
+    throwMissingValueExceptionIfNeed(licenseProperties, licensePropertiesFileName)
+    throwMissingValueExceptionIfNeed(libraryProperties, libraryPropertiesFileName)
+}
+
+private static def throwMissingValueExceptionIfNeed(propertyMap, fileName) {
+    propertyMap.each { entry ->
+        if (!entry.value) {
+            throw new Exception("${entry.key} is empty in $fileName")
+        }
+    }
+}
+
+version = libraryProperties.getProperty('libraryVersion')
+group = playgroundProperties.getProperty('publishedGroupId')
+
+publishing {
+    publications {
+        bar(MavenPublication) {
+            groupId playgroundProperties.getProperty('publishedGroupId')
+            artifactId libraryProperties.getProperty('artifact')
+            version libraryProperties.getProperty('libraryVersion')
+            artifact("$buildDir/outputs/aar/$artifactId-release.aar")
+
+            pom {
+                licenses {
+                    license {
+                        name = licenseProperties.getProperty('licenseName')
+                        url = licenseProperties.getProperty('licenseUrl')
+                    }
+                }
+                developers {
+                    developer {
+                        id = developerProperties.getProperty('developerId')
+                        name = developerProperties.getProperty('developerName')
+                        email = developerProperties.getProperty('developerEmail')
+                    }
+                }
+                withXml {
+                    final dependenciesNode = asNode().appendNode('dependencies')
+                    ext.addDependency = { Dependency dep, String scope ->
+                        if (dep.group == null || dep.version == null || dep.name == null || dep.name == "unspecified")
+                            return
+                        final dependencyNode = dependenciesNode.appendNode('dependency')
+                        dependencyNode.appendNode('groupId', dep.group)
+                        dependencyNode.appendNode('artifactId', dep.name)
+                        dependencyNode.appendNode('version', dep.version)
+                        dependencyNode.appendNode('scope', scope)
+                        if (!dep.transitive) {
+                            final exclusionNode = dependencyNode.appendNode('exclusions').appendNode('exclusion')
+                            exclusionNode.appendNode('groupId', '*')
+                            exclusionNode.appendNode('artifactId', '*')
+                        } else if (!dep.properties.excludeRules.empty) {
+                            final exclusionNode = dependencyNode.appendNode('exclusions').appendNode('exclusion')
+                            dep.properties.excludeRules.each { ExcludeRule rule ->
+                                exclusionNode.appendNode('groupId', rule.group ?: '*')
+                                exclusionNode.appendNode('artifactId', rule.module ?: '*')
+                            }
+                        }
+                    }
+                    configurations.compile.getDependencies().each { dep -> addDependency(dep, "compile") }
+                    configurations.api.getDependencies().each { dep -> addDependency(dep, "compile") }
+                    configurations.implementation.getDependencies().each { dep -> addDependency(dep, "runtime") }
+
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name = playgroundProperties.getProperty('repoName')
+            url = uri("https://maven.pkg.github.com/$gprUser/${playgroundProperties.getProperty('repoName')}")
+            credentials {
+                username = gprUser ?: System.getenv("GPR_USER")
+                password = gprApiKey ?: System.getenv("GPR_API_KEY")
+            }
+        }
+    }
+}
+
+task sourcesJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+
+task javadoc(type: Javadoc) {
+    source = android.sourceSets.main.java.srcDirs
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives javadocJar
+    archives sourcesJar
+}

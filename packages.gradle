@@ -1,0 +1,15 @@
+def localPropertiesFile = rootProject.file("local.properties")
+def localProperties = new Properties()
+localProperties.load(new FileInputStream(localPropertiesFile))
+
+repositories {
+    maven {
+        name = "GitHubPackagesPlayground"
+        url = uri("https://maven.pkg.github.com/miracozkan/GitHubPackagesPlayground")
+
+        credentials {
+            username = System.getenv("GPR_USER") ?: localProperties['gpr.usr']
+            password = System.getenv("GPR_READ_API_KEY") ?: localProperties['gpr.readkey']
+        }
+    }
+}

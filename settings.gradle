@@ -1,2 +1,3 @@
 rootProject.name = "GitHubPackagesPlayground"
 include ':app'
+include ':firstlib'
