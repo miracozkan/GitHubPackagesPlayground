@@ -68,9 +68,11 @@ publishing {
     publications {
         bar(MavenPublication) {
             groupId playgroundProperties.getProperty('publishedGroupId')
+            artifact("$buildDir/outputs/aar/$artifactId-release.aar")
+
             artifactId libraryProperties.getProperty('artifact')
             version libraryProperties.getProperty('libraryVersion')
-            artifact("$buildDir/outputs/aar/$artifactId-release.aar")
+            description libraryProperties.getProperty('libraryDescription')
 
             pom {
                 licenses {
