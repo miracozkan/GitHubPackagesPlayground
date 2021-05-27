@@ -75,6 +75,16 @@ publishing {
             description libraryProperties.getProperty('libraryDescription')
 
             pom {
+                name = libraryProperties.getProperty('libraryName')
+                packaging = 'aar'
+                description = libraryProperties.getProperty('libraryDescription')
+                url = playgroundProperties.getProperty('projectSiteUrl')
+
+                scm {
+                    connection = playgroundProperties.getProperty('projectGitUrl')
+                    developerConnection = playgroundProperties.getProperty('projectGitUrl')
+                    url = playgroundProperties.getProperty('projectSiteUrl')
+                }
                 licenses {
                     license {
                         name = licenseProperties.getProperty('licenseName')
@@ -83,7 +93,7 @@ publishing {
                 }
                 developers {
                     developer {
-                        id = developerProperties.getProperty('developerId')
+                        id  =developerProperties.getProperty('developerId')
                         name = developerProperties.getProperty('developerName')
                         email = developerProperties.getProperty('developerEmail')
                     }
@@ -113,7 +123,6 @@ publishing {
                     configurations.compile.getDependencies().each { dep -> addDependency(dep, "compile") }
                     configurations.api.getDependencies().each { dep -> addDependency(dep, "compile") }
                     configurations.implementation.getDependencies().each { dep -> addDependency(dep, "runtime") }
-
                 }
             }
         }
